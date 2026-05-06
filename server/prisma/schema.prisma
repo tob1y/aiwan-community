@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  nickname     String
+  nicknameKey  String   @unique
+  realName     String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  ideas        Idea[]
+  forumPosts   ForumPost[]
+  signups      IdeaSignup[]
+}
+
+model Idea {
+  id           String       @id @default(cuid())
+  title        String
+  description  String       @db.Text
+  budget       String
+  peopleNeeded Int
+  authorName   String
+  authorUserId String
+  author       User         @relation(fields: [authorUserId], references: [id])
+  signups      IdeaSignup[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model IdeaSignup {
+  id        String   @id @default(cuid())
+  ideaId    String
+  idea      Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  name      String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  note      String?
+  createdAt DateTime @default(now())
+}
+
+model ForumPost {
+  id           String       @id @default(cuid())
+  title        String
+  body         String       @db.Text
+  images       Json
+  authorName   String
+  authorUserId String
+  author       User         @relation(fields: [authorUserId], references: [id])
+  replies      ForumReply[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model ForumReply {
+  id            String    @id @default(cuid())
+  postId        String
+  post          ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorName    String
+  authorUserId  String
+  body          String    @db.Text
+  imageDataUrl  String?   @db.Text
+  createdAt     DateTime  @default(now())
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+}
+
+model OngoingProject {
+  id             String        @id @default(cuid())
+  name           String
+  lead           String
+  team           String
+  currentSummary String        @db.Text
+  feishuUrl      String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  progressLogs   ProgressLog[]
+}
+
+model ProgressLog {
+  id        String         @id @default(cuid())
+  projectId String
+  project   OngoingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  at        DateTime       @default(now())
+  note      String         @db.Text
+}

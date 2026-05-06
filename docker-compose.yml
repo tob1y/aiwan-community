@@ -1,0 +1,12 @@
+# 本地共同数据库：docker compose up -d
+# 连接串与 server/.env.example 中端口 5433 一致
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: aiwan
+      POSTGRES_PASSWORD: aiwan_secret
+      POSTGRES_DB: aiwan
