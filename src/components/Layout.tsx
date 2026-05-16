@@ -18,7 +18,7 @@ export function Layout() {
     <div className="shell">
       <header className="top">
         <NavLink to="/" className="brand">
-          <span className="brand-mark" aria-hidden />
+          <img src="/logo.jpg" alt="爱玩社区" className="brand-mark" />
           <span className="brand-text">
             <span className="brand-title">爱玩社区</span>
             <span className="brand-sub">机会 · 动手 · 一起玩</span>
