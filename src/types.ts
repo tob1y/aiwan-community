@@ -71,9 +71,23 @@ export type Announcement = {
   createdAt: string
 }
 
+export type PastActivity = {
+  id: string
+  title: string
+  summary: string
+  coverImage?: string
+  date: string
+  tag: string
+  body: string
+  images: string[]
+  createdAt: string
+  updatedAt: string
+}
+
 export type AppState = {
   ideas: Idea[]
   announcements: Announcement[]
   ongoingProjects: OngoingProject[]
   forumPosts: ForumPost[]
+  pastActivities: PastActivity[]
 }

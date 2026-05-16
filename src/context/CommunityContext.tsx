@@ -13,6 +13,7 @@ import type {
   ForumPost,
   Idea,
   OngoingProject,
+  PastActivity,
 } from '../types'
 import { apiJson } from '../lib/api'
 import { useAuth } from './AuthContext'
@@ -22,6 +23,7 @@ type CommunityContextValue = {
   announcements: Announcement[]
   ongoingProjects: OngoingProject[]
   forumPosts: ForumPost[]
+  pastActivities: PastActivity[]
   communityLoading: boolean
   communityError: string | null
   clearCommunityError: () => void
@@ -56,6 +58,9 @@ type CommunityContextValue = {
   updateOngoingSummary: (id: string, summary: string) => Promise<void>
   addProgressLog: (id: string, note: string) => Promise<void>
   removeOngoingProject: (id: string) => Promise<void>
+  addPastActivity: (input: Omit<PastActivity, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
+  updatePastActivity: (id: string, input: Partial<Omit<PastActivity, 'id' | 'createdAt' | 'updatedAt'>>) => Promise<void>
+  removePastActivity: (id: string) => Promise<void>
 }
 
 const CommunityContext = createContext<CommunityContextValue | null>(null)
@@ -65,6 +70,7 @@ const empty: AppState = {
   announcements: [],
   ongoingProjects: [],
   forumPosts: [],
+  pastActivities: [],
 }
 
 function canEditIdeaWithUser(ideas: Idea[], ideaId: string, userId: string | null): boolean {
@@ -250,12 +256,35 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
     setState(res.state)
   }, [])
 
+  const addPastActivity = useCallback(async (input: Omit<PastActivity, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const res = await apiJson<{ state: AppState }>('/api/past-activities', {
+      json: input,
+    })
+    setState(res.state)
+  }, [])
+
+  const updatePastActivity = useCallback(async (id: string, input: Partial<Omit<PastActivity, 'id' | 'createdAt' | 'updatedAt'>>) => {
+    const res = await apiJson<{ state: AppState }>(`/api/past-activities/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      json: input,
+    })
+    setState(res.state)
+  }, [])
+
+  const removePastActivity = useCallback(async (id: string) => {
+    const res = await apiJson<{ state: AppState }>(`/api/past-activities/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    })
+    setState(res.state)
+  }, [])
+
   const value = useMemo<CommunityContextValue>(
     () => ({
       ideas: state.ideas,
       announcements: state.announcements,
       ongoingProjects: state.ongoingProjects,
       forumPosts: state.forumPosts,
+      pastActivities: state.pastActivities,
       communityLoading,
       communityError,
       clearCommunityError,
@@ -274,12 +303,16 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       updateOngoingSummary,
       addProgressLog,
       removeOngoingProject,
+      addPastActivity,
+      updatePastActivity,
+      removePastActivity,
     }),
     [
       state.ideas,
       state.announcements,
       state.ongoingProjects,
       state.forumPosts,
+      state.pastActivities,
       communityLoading,
       communityError,
       clearCommunityError,
@@ -298,6 +331,9 @@ export function CommunityProvider({ children }: { children: ReactNode }) {
       updateOngoingSummary,
       addProgressLog,
       removeOngoingProject,
+      addPastActivity,
+      updatePastActivity,
+      removePastActivity,
     ],
   )
 

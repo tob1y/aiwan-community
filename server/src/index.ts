@@ -20,6 +20,21 @@ function signToken(userId: string): string {
   return jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn: '30d' })
 }
 
+function tryParseJsonArray(v: unknown): string[] {
+  if (Array.isArray(v)) return v as string[]
+  if (typeof v === 'string') {
+    try {
+      const parsed = JSON.parse(v)
+      return Array.isArray(parsed) ? parsed : []
+    } catch { return [] }
+  }
+  return []
+}
+
+function jsonArr(v: unknown): string {
+  return JSON.stringify(Array.isArray(v) ? v : [])
+}
+
 function verifyToken(token: string): JwtPayload | null {
   try {
     return jwt.verify(token, JWT_SECRET) as JwtPayload
@@ -29,7 +44,7 @@ function verifyToken(token: string): JwtPayload | null {
 }
 
 async function buildState() {
-  const [ideas, announcements, ongoingProjects, forumPosts] = await Promise.all([
+  const [ideas, announcements, ongoingProjects, forumPosts, pastActivities] = await Promise.all([
     prisma.idea.findMany({
       orderBy: { updatedAt: 'desc' },
       include: { signups: { orderBy: { createdAt: 'asc' } } },
@@ -43,6 +58,7 @@ async function buildState() {
       orderBy: { updatedAt: 'desc' },
       include: { replies: { orderBy: { createdAt: 'asc' } } },
     }),
+    prisma.pastActivity.findMany({ orderBy: { createdAt: 'desc' } }),
   ])
 
   return {
@@ -89,7 +105,7 @@ async function buildState() {
       id: p.id,
       title: p.title,
       body: p.body,
-      images: Array.isArray(p.images) ? (p.images as string[]) : [],
+      images: tryParseJsonArray(p.images),
       authorName: p.authorName,
       authorUserId: p.authorUserId,
       replies: p.replies.map((r) => ({
@@ -102,6 +118,18 @@ async function buildState() {
       })),
       createdAt: p.createdAt.toISOString(),
       updatedAt: p.updatedAt.toISOString(),
+    })),
+    pastActivities: pastActivities.map((a) => ({
+      id: a.id,
+      title: a.title,
+      summary: a.summary,
+      coverImage: a.coverImage ?? undefined,
+      date: a.date,
+      tag: a.tag,
+      body: a.body,
+      images: tryParseJsonArray(a.images),
+      createdAt: a.createdAt.toISOString(),
+      updatedAt: a.updatedAt.toISOString(),
     })),
   }
 }
@@ -306,7 +334,7 @@ async function main() {
         data: {
           title,
           body,
-          images,
+          images: jsonArr(images),
           authorName: user.nickname,
           authorUserId: user.id,
         },
@@ -416,6 +444,56 @@ async function main() {
   app.delete<{ Params: { id: string } }>('/api/ongoing/:id', async (req, reply) => {
     if (!authUserId(req)) return reply.status(401).send({ error: '请先登录' })
     await prisma.ongoingProject.deleteMany({ where: { id: req.params.id } })
+    return { state: await buildState() }
+  })
+
+  // --- 往期项目 ---
+  app.post<{
+    Body: { title?: string; summary?: string; coverImage?: string; date?: string; tag?: string; body?: string; images?: unknown }
+  }>('/api/past-activities', async (req, reply) => {
+    if (!authUserId(req)) return reply.status(401).send({ error: '请先登录' })
+    const title = (req.body.title || '').trim()
+    const summary = (req.body.summary || '').trim()
+    const date = (req.body.date || '').trim()
+    const tag = (req.body.tag || '').trim()
+    const body = (req.body.body || '').trim()
+    if (!title || !summary || !date || !body) {
+      return reply.status(400).send({ error: '标题、摘要、日期与正文为必填。' })
+    }
+    const coverImage = (req.body.coverImage || '').trim() || null
+    const images = Array.isArray(req.body.images)
+      ? (req.body.images as unknown[]).filter((x): x is string => typeof x === 'string')
+      : []
+    await prisma.pastActivity.create({
+      data: { title, summary, coverImage, date, tag, body, images: jsonArr(images) },
+    })
+    return { state: await buildState() }
+  })
+
+  app.patch<{
+    Params: { id: string }
+    Body: { title?: string; summary?: string; coverImage?: string; date?: string; tag?: string; body?: string; images?: unknown }
+  }>('/api/past-activities/:id', async (req, reply) => {
+    if (!authUserId(req)) return reply.status(401).send({ error: '请先登录' })
+    const data: Record<string, unknown> = {}
+    if (req.body.title !== undefined) data.title = String(req.body.title).trim()
+    if (req.body.summary !== undefined) data.summary = String(req.body.summary).trim()
+    if (req.body.date !== undefined) data.date = String(req.body.date).trim()
+    if (req.body.tag !== undefined) data.tag = String(req.body.tag).trim()
+    if (req.body.body !== undefined) data.body = String(req.body.body).trim()
+    if (req.body.coverImage !== undefined) data.coverImage = String(req.body.coverImage).trim() || null
+    if (req.body.images !== undefined) {
+      data.images = jsonArr(Array.isArray(req.body.images)
+        ? (req.body.images as unknown[]).filter((x): x is string => typeof x === 'string')
+        : [])
+    }
+    await prisma.pastActivity.update({ where: { id: req.params.id }, data })
+    return { state: await buildState() }
+  })
+
+  app.delete<{ Params: { id: string } }>('/api/past-activities/:id', async (req, reply) => {
+    if (!authUserId(req)) return reply.status(401).send({ error: '请先登录' })
+    await prisma.pastActivity.deleteMany({ where: { id: req.params.id } })
     return { state: await buildState() }
   })
 
